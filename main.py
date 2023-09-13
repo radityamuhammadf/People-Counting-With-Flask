@@ -1,11 +1,12 @@
 # import necessary libraries
-from flask import Flask,render_template,Response
+from flask import Flask,render_template,Response,request,jsonify
 import cv2
 import random #to create random color value
 from ultralytics import YOLO
 from deepsort import Tracker #deepSORT tracker class
 import numpy as np
-
+import mysql.connector
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -39,10 +40,90 @@ colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255
 cy1=322
 cy2=368
 offset=6
-# ========== OLD REPO CONTENTS ===========
 
+
+
+# ========== DATABASE RELATED FUNCTION ===========
+# Initiate connection to MySQL server
+mydb = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password=''
+)
+# Instantiate cursor class for executing SQL commands
+cursor = mydb.cursor()
+database_name = "enpemo"
+counter_table_name = "kehadiran"
+
+def checkDatabaseExistance(database_name):
+    check_db_query = f"SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '{database_name}' "
+    cursor.execute(check_db_query)
+    result = cursor.fetchone()
+    return result is not None
+
+def createDatabase(database_name):
+    create_database_query = f"CREATE DATABASE {database_name}"
+    cursor.execute(create_database_query)
+    print(f"The database '{database_name}' has been created.")
+
+def createTableIfNotExist(table_name):
+    create_table_query = f"""
+        CREATE TABLE IF NOT EXISTS `{table_name}` (
+            `id` INT NOT NULL AUTO_INCREMENT,
+            `jumlah` INT NOT NULL,
+            `createdAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updatedAt` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 AUTO_INCREMENT=3;
+    """
+    cursor.execute(create_table_query)
+
+def checkTableExistence(table_name):
+    check_table_query = f"SHOW TABLES LIKE '{table_name}'"
+    cursor.execute(check_table_query)
+    result = cursor.fetchone()
+    return result is not None
+def dataInsertion():
+    global cursor, mydb  # Access the global cursor and mydb variables
+
+    # Get the counted people value
+    count = len(people_list)
+
+    # Current date to check if there's data already inserted
+    current_date = datetime.now().date()
+
+    # Check if a row already exists for the current date
+    check_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"
+    cursor.execute(check_query)
+    existing_row = cursor.fetchone()
+
+    if existing_row:
+        # A row already exists for the current date, update it
+        update_query = f"UPDATE kehadiran SET jumlah = {count}, updatedAt = NOW() WHERE DATE(createdAt) = '{current_date}'"
+        cursor.execute(update_query)
+    else:
+        # No row exists for the current date, insert a new row
+        insert_query = f"INSERT INTO kehadiran (jumlah) VALUES ({count})"
+        cursor.execute(insert_query)
+
+    # Commit the changes to the database
+    mydb.commit()
+
+    # Return a JSON response indicating success
+    return jsonify({"message": "Data inserted or updated successfully"})
+
+
+if not checkDatabaseExistance(database_name):
+    createDatabase(database_name)
+# Select the 'enpemo' database
+cursor.execute(f"USE {database_name}")
+createTableIfNotExist(counter_table_name)
+# ========== DATABASE RELATED FUNCTION ===========
+
+# ========== COUNTER RELATED FUNCTION ===========
 # create frame generator for streaming the results
-def gen_frames():
+def generate_frame():
+    # The Detection Segment
     while True:
         success,frame=camera.read()
         if not success:
@@ -103,8 +184,12 @@ def gen_frames():
             frame=buffer.tobytes()
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  # concat frame one by one and show result
+            # return len(people_list)
+# ========== COUNTER RELATED FUNCTION ===========
 
-
+# ========== MAIN FUNCTION and DB INITIATION===========
+def main():
+    pass
 
 # show this function when the route is on the landing page --> "/"
 @app.route("/")
@@ -114,4 +199,13 @@ def index():
 
 @app.route('/video_feed')
 def video_feed():
-    return Response(gen_frames(),mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_frame(),mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/insert_data',methods=['POST'])
+def insert_data():
+    if request.method=='POST':
+        result=dataInsertion()
+        return result    
+
+if __name__=="__main__":
+    main()
