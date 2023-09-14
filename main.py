@@ -55,18 +55,22 @@ cursor = mydb.cursor()
 database_name = "enpemo"
 counter_table_name = "kehadiran"
 
+# Will check if there's database named Enpemo exist on those server (server isn't it?)
 def checkDatabaseExistance(database_name):
-    check_db_query = f"SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '{database_name}' "
+    check_db_query = f"SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '{database_name}' " #sql query for checking if database named on 'database_name' variable is exist
     cursor.execute(check_db_query)
     result = cursor.fetchone()
     return result is not None
 
+# Create a database 
 def createDatabase(database_name):
-    create_database_query = f"CREATE DATABASE {database_name}"
+    create_database_query = f"CREATE DATABASE {database_name}"#sql query for creating database named on 'database_name' variable
     cursor.execute(create_database_query)
     print(f"The database '{database_name}' has been created.")
 
+# Function to execute the SQL Query which will be creating a new table if there's no table  
 def createTableIfNotExist(table_name):
+    # query for automatically checking and creating a table
     create_table_query = f"""
         CREATE TABLE IF NOT EXISTS `{table_name}` (
             `id` INT NOT NULL AUTO_INCREMENT,
@@ -79,10 +83,10 @@ def createTableIfNotExist(table_name):
     cursor.execute(create_table_query)
 
 def checkTableExistence(table_name):
-    check_table_query = f"SHOW TABLES LIKE '{table_name}'"
-    cursor.execute(check_table_query)
-    result = cursor.fetchone()
-    return result is not None
+    check_table_query = f"SHOW TABLES LIKE '{table_name}'" #sql query for searching table name
+    cursor.execute(check_table_query) 
+    result = cursor.fetchone() #fetch the search result -> 
+    return result is not None #if the search result is not empty result, it'll returning not None value  
 def dataInsertion():
     global cursor, mydb  # Access the global cursor and mydb variables
 
@@ -112,7 +116,7 @@ def dataInsertion():
     # Return a JSON response indicating success
     return jsonify({"message": "Data inserted or updated successfully"})
 
-
+# Global Logic -- Checking database existence then creating a database if there's no database found in the server
 if not checkDatabaseExistance(database_name):
     createDatabase(database_name)
 # Select the 'enpemo' database
@@ -188,8 +192,7 @@ def generate_frame():
 # ========== COUNTER RELATED FUNCTION ===========
 
 # ========== MAIN FUNCTION and DB INITIATION===========
-def main():
-    pass
+
 
 # show this function when the route is on the landing page --> "/"
 @app.route("/")
@@ -207,5 +210,4 @@ def insert_data():
         result=dataInsertion()
         return result    
 
-if __name__=="__main__":
-    main()
+
