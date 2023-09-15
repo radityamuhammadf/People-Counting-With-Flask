@@ -88,29 +88,29 @@ def checkTableExistence(table_name):
     result = cursor.fetchone() #fetch the search result -> 
     return result is not None #if the search result is not empty result, it'll returning not None value  
 
-# Function to insert data with button
-def dataInsertion():
-       global cursor, mydb  # Access the global cursor and mydb variables
-       # Get the counted people value
-       count = len(people_list)
-       # Current date to check if there's data already inserted
-       current_date = datetime.now().date()
-       # Check if a row already exists for the current date
-       check_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"
-       cursor.execute(check_query)
-       existing_row = cursor.fetchone()
-       if existing_row:
-           # A row already exists for the current date, update it
-           update_query = f"UPDATE kehadiran SET jumlah = {count}, updatedAt = NOW() WHERE DATE(createdAt) = '{current_date}'"
-           cursor.execute(update_query)
-       else:
-           # No row exists for the current date, insert a new row
-           insert_query = f"INSERT INTO kehadiran (jumlah) VALUES ({count})"
-           cursor.execute(insert_query)
-       # Commit the changes to the database
-       mydb.commit()
-       # Return a JSON response indicating success
-       return jsonify({"message": "Data inserted or updated successfully"})
+# # Function to insert data with button
+# def dataInsertion():
+#        global cursor, mydb  # Access the global cursor and mydb variables
+#        # Get the counted people value
+#        count = len(people_list)
+#        # Current date to check if there's data already inserted
+#        current_date = datetime.now().date()
+#        # Check if a row already exists for the current date
+#        check_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"
+#        cursor.execute(check_query)
+#        existing_row = cursor.fetchone()
+#        if existing_row:
+#            # A row already exists for the current date, update it
+#            update_query = f"UPDATE kehadiran SET jumlah = {count}, updatedAt = NOW() WHERE DATE(createdAt) = '{current_date}'"
+#            cursor.execute(update_query)
+#        else:
+#            # No row exists for the current date, insert a new row
+#            insert_query = f"INSERT INTO kehadiran (jumlah) VALUES ({count})"
+#            cursor.execute(insert_query)
+#        # Commit the changes to the database
+#        mydb.commit()
+#        # Return a JSON response indicating success
+#        return jsonify({"message": "Data inserted or updated successfully"})
 
 
 # Function to insert data with Time Trigger
@@ -226,6 +226,8 @@ scheduler.start()
 # Function to stop the scheduler
 def cleanup():
     scheduler.shutdown()
+    return jsonify({"message": "Data inserted or updated successfully"})
+ 
 
 # ========== TASK SCHEDULER RELATED FUNCTION (END) ===========
 
@@ -242,17 +244,17 @@ def index():
 def video_feed():
     return Response(generate_frame(),mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/insert_data',methods=['POST'])
-def insert_data():
-    if request.method=='POST':
-        result=dataInsertion()
-        return result    
+# @app.route('/insert_data',methods=['POST'])
+# def insert_data():
+#     if request.method=='POST':
+#         result=dataInsertion()
+#         return result    
 
 # Add a stop-scheduling route
 @app.route('/cleanup')
 def cleanup_route():
     cleanup()
-    return "Scheduler stopped"
+    return "Scheduler Stopped"
 
 if __name__ == '__main__':
     app.run(debug=True)
