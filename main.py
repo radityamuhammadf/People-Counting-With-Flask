@@ -41,19 +41,7 @@ cy1=322
 cy2=368
 offset=6
 
-
-
 # ========== DATABASE RELATED FUNCTION ===========
-# Initiate connection to MySQL server
-mydb = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    password=''
-)
-# Instantiate cursor class for executing SQL commands
-cursor = mydb.cursor()
-database_name = "enpemo"
-counter_table_name = "kehadiran"
 
 # Will check if there's database named Enpemo exist on those server (server isn't it?)
 def checkDatabaseExistance(database_name):
@@ -115,36 +103,67 @@ def checkTableExistence(table_name):
 
 # Function to insert data with Time Trigger
 def dataInsertion_TimeTrigger():
-       global cursor, mydb  # Access the global cursor and mydb variables
-       # Get the counted people value
-       count = len(people_list)
-       # Current date to check if there's data already inserted
-       current_date = datetime.now().date()
-       # Check if a row already exists for the current date
-       check_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"
-       cursor.execute(check_query)
-       existing_row = cursor.fetchone()
-       if existing_row:
-           # A row already exists for the current date, update it
-           update_query = f"UPDATE kehadiran SET jumlah = {count}, updatedAt = NOW() WHERE DATE(createdAt) = '{current_date}'"
-           cursor.execute(update_query)
-       else:
-           # No row exists for the current date, insert a new row
-           insert_query = f"INSERT INTO kehadiran (jumlah) VALUES ({count})"
-           cursor.execute(insert_query)
-       # Commit the changes to the database
-       mydb.commit()
-       # Return a JSON response indicating success
-       return True
+    global cursor, mydb  # Access the global cursor and mydb variables
+    current_date = datetime.now().date()# Current date to check if there's data already inserted
+    check_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"# query to check if a row already exists for the current date
+    cursor.execute(check_query)#execute the query
+    existing_row = cursor.fetchone()
+
+    if existing_row:
+        count=existing_row[1] #load the count value from the fetched results
+    else:
+        count=0
+    
+    count+=len(people_list)
+
+    if existing_row:
+        # A row already exists for the current date, update it
+        update_query = f"UPDATE kehadiran SET jumlah = {count}, updatedAt = NOW() WHERE DATE(createdAt) = '{current_date}'"
+        cursor.execute(update_query)
+    else:
+        # No row exists for the current date, insert a new row
+        insert_query = f"INSERT INTO kehadiran (jumlah) VALUES ({count})"
+        cursor.execute(insert_query)
+    print(f"STORE TO DATABASE VALUE: {count}")
+    # people_list={}#clear the people list after data update
+    # Commit the changes to the database
+    mydb.commit()
+    # Return a JSON response indicating success
+    return True
+
+# def getLastValue():
+#     global count,cursor,mydb
+#     # Current date to check if there's data already inserted
+#     current_date = datetime.now().date()
+#     # Check if a row already exists for the current date
+#     get_val_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"
+#     cursor.execute(get_val_query)
+#     result = cursor.fetchone() #fetch the last row of search results
+#     if not result:
+#         print(f"No data on {current_date} yet, creating one...")
+#         dataInsertion_TimeTrigger()
+#     else:
+#         count=result[1]
 
 
+
+# Initiate connection to MySQL server
+mydb = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password=''
+)
+# Instantiate cursor class for executing SQL commands
+cursor = mydb.cursor()
+database_name = "enpemo"
+counter_table_name = "kehadiran"
 # Global Logic -- Checking database existence then creating a database if there's no database found in the server
 if not checkDatabaseExistance(database_name):
     createDatabase(database_name)
 # Select the 'enpemo' database
 cursor.execute(f"USE {database_name}")
 createTableIfNotExist(counter_table_name)
-# ========== DATABASE RELATED FUNCTION ===========
+# ========== DATABASE RELATED FUNCTION (END)===========
 
 # ========== COUNTER RELATED FUNCTION ===========
 # create frame generator for streaming the results
@@ -216,19 +235,14 @@ def generate_frame():
 # ========== TASK SCHEDULER RELATED FUNCTION (START) ===========
 # Initialize the APScheduler
 scheduler = BackgroundScheduler()
-
 # Repeat your dataInsertion function every 2 seconds
 scheduler.add_job(dataInsertion_TimeTrigger, 'interval', seconds=2)
-
 # Start the scheduler when the Flask app starts
 scheduler.start()
-
 # Function to stop the scheduler
 def cleanup():
     scheduler.shutdown()
     return jsonify({"message": "Data inserted or updated successfully"})
- 
-
 # ========== TASK SCHEDULER RELATED FUNCTION (END) ===========
 
 # ========== MAIN FUNCTION and DB INITIATION===========
