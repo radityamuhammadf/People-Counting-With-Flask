@@ -1,13 +1,13 @@
 # import necessary libraries
-from flask import Flask,render_template,Response,request,jsonify
+from flask import Flask,render_template,Response,request,jsonify,current_app
 import cv2
 import random #to create random color value
 from ultralytics import YOLO
 from deepsort import Tracker #deepSORT tracker class
 import numpy as np
 import mysql.connector
-from datetime import datetime
-
+from datetime import datetime, time, timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
 app = Flask(__name__)
 
 # ========== OLD REPO CONTENTS ===========
@@ -87,34 +87,39 @@ def checkTableExistence(table_name):
     cursor.execute(check_table_query) 
     result = cursor.fetchone() #fetch the search result -> 
     return result is not None #if the search result is not empty result, it'll returning not None value  
+
+# Function to insert data
 def dataInsertion():
-    global cursor, mydb  # Access the global cursor and mydb variables
+    # Create an application context
+    with current_app.app_context():
+        global cursor, mydb  # Access the global cursor and mydb variables
 
-    # Get the counted people value
-    count = len(people_list)
+        # Get the counted people value
+        count = len(people_list)
 
-    # Current date to check if there's data already inserted
-    current_date = datetime.now().date()
+        # Current date to check if there's data already inserted
+        current_date = datetime.now().date()
 
-    # Check if a row already exists for the current date
-    check_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"
-    cursor.execute(check_query)
-    existing_row = cursor.fetchone()
+        # Check if a row already exists for the current date
+        check_query = f"SELECT * FROM kehadiran WHERE DATE(createdAt) = '{current_date}'"
+        cursor.execute(check_query)
+        existing_row = cursor.fetchone()
 
-    if existing_row:
-        # A row already exists for the current date, update it
-        update_query = f"UPDATE kehadiran SET jumlah = {count}, updatedAt = NOW() WHERE DATE(createdAt) = '{current_date}'"
-        cursor.execute(update_query)
-    else:
-        # No row exists for the current date, insert a new row
-        insert_query = f"INSERT INTO kehadiran (jumlah) VALUES ({count})"
-        cursor.execute(insert_query)
+        if existing_row:
+            # A row already exists for the current date, update it
+            update_query = f"UPDATE kehadiran SET jumlah = {count}, updatedAt = NOW() WHERE DATE(createdAt) = '{current_date}'"
+            cursor.execute(update_query)
+        else:
+            # No row exists for the current date, insert a new row
+            insert_query = f"INSERT INTO kehadiran (jumlah) VALUES ({count})"
+            cursor.execute(insert_query)
 
-    # Commit the changes to the database
-    mydb.commit()
+        # Commit the changes to the database
+        mydb.commit()
 
-    # Return a JSON response indicating success
-    return jsonify({"message": "Data inserted or updated successfully"})
+        # Return a JSON response indicating success
+        # return jsonify({"message": "Data inserted or updated successfully"})
+
 
 # Global Logic -- Checking database existence then creating a database if there's no database found in the server
 if not checkDatabaseExistance(database_name):
@@ -191,6 +196,22 @@ def generate_frame():
             # return len(people_list)
 # ========== COUNTER RELATED FUNCTION ===========
 
+# ========== TASK SCHEDULER RELATED FUNCTION (START) ===========
+# Initialize the APScheduler
+scheduler = BackgroundScheduler()
+
+# Repeat your dataInsertion function every 2 seconds
+scheduler.add_job(dataInsertion, 'interval', seconds=2)
+
+# Start the scheduler when the Flask app starts
+scheduler.start()
+
+# Function to stop the scheduler
+def cleanup():
+    scheduler.shutdown()
+
+# ========== TASK SCHEDULER RELATED FUNCTION (END) ===========
+
 # ========== MAIN FUNCTION and DB INITIATION===========
 
 
@@ -210,4 +231,8 @@ def insert_data():
         result=dataInsertion()
         return result    
 
-
+# Add a stop-scheduling route
+@app.route('/cleanup')
+def cleanup_route():
+    cleanup()
+    return "Scheduler stopped"
